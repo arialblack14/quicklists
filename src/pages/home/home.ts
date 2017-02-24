@@ -2,9 +2,11 @@ import { Component } from '@angular/core';
 import { NavController, AlertController, Platform } from 'ionic-angular';
 
 import { ChecklistPage } from '../checklist/checklist';
-import { ChecklistModel } from '../models/checklist-model';
-import { Data } from '../providers/data';
+import { ChecklistModel } from '../../models/checklist-model';
+import { Data } from '../../providers/data';
 import { Keyboard } from 'ionic-native';
+import { IntroPage } from '../intro/intro';
+import { Storage } from '@ionic/storage';
 
 @Component({
   selector: 'page-home',
@@ -15,12 +17,40 @@ export class HomePage {
   checklists: ChecklistModel[] = [];
 
   constructor(public nav: NavController, public dataService: Data,
-              public alertCtrl: AlertController, public platform: Platform) {
+              public alertCtrl: AlertController, public platform: Platform,
+              public storage: Storage) {
 
   }
 
   ionViewDidLoad() {
+    this.platform.ready().then(() => {
 
+      this.storage.get('introShown').then((result) => {
+        if (!result) {
+          this.storage.set('introShown', true);
+          this.nav.setRoot(IntroPage);
+        }
+      });
+
+      this.dataService.getData().then((checklists) => {
+        let savedChecklists: any = false;
+
+        if (typeof(checklists) != "undefined") {
+          savedChecklists = JSON.parse(checklists);
+        }
+
+        if (savedChecklists) {
+          savedChecklists.forEach((savedChecklist) => {
+            let loadChecklist = new ChecklistModel(savedChecklist.title, savedChecklist.items);
+            this.checklists.push(loadChecklist);
+
+            loadChecklist.checklistUpdates().subscribe(update => {
+              this.save();
+            });
+          });
+        }
+      });
+    });
   }
 
   addChecklist(): void {
@@ -101,7 +131,8 @@ export class HomePage {
   }
 
   save(): void {
-
+    Keyboard.close();
+    this.dataService.save(this.checklists);
   }
 
 }
